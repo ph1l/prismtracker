@@ -18,6 +18,7 @@
 
 import argparse
 import logging
+import os
 import time
 
 import gpxpy
@@ -95,6 +96,15 @@ def main():
             format='%(levelname)s %(name)s.%(funcName)s:%(lineno)d - %(message)s'
         )
 
+    # timezones are stupid -- so this isn't the best, but we're using strptime
+    # to get a timestamp in seconds since epoc UTC from the GPS device.
+    # strptime doesn't know about timezones apparently, so this hack gives us
+    # the correct timestamp later in the `get_timestamp()' method of our gps
+    # driver. *le' sigh*
+
+    os.environ['TZ'] = 'Etc/UTC'
+    time.tzset()
+
     logger = logging.getLogger(__name__)
 
     # Setup GPS Interface
@@ -142,6 +152,10 @@ def main():
                 time.sleep(5)
                 continue
             break
+
+        logger.debug("got timestamp %s seconds from time string: %s",
+                gps_i.get_timestamp(), gps_i.get_timestring()
+            )
 
         # Build the APRS Packet
         path = []
