@@ -74,10 +74,12 @@ def main():
             help='include altitude in position report',
             action='store_true',
         )
-    parser.add_argument('--interval',
-            help='minimum seconds between position reports',
-            type=int,
-            default=0,
+    parser.add_argument('--algorithm',
+            help='Beacon algorithm (interval, smart, etc...)',
+            default='smart',
+        )
+    parser.add_argument('--algorithm-opts',
+            default='',
         )
     parser.add_argument('--loglevel',
             help='log level (debug, info, warning, error)',
@@ -145,11 +147,35 @@ def main():
         gpx_segment_broadcasts = gpxpy.gpx.GPXTrackSegment()
         gpx_track_broadcasts.segments.append(gpx_segment_broadcasts)
 
-    # Setup & Configure Beaconing Algorithm
-    beacon_a = beacon_algorithm.BeaconAlgorithmInterval(gps_i, opts.interval)
+    # Parse Beaconing Options
+    algorithm_opts = {
+        'interval': 300,
+        'min_interval': 30,
+        'max_interval': 600,
+            }
+    if len(opts.algorithm_opts) > 0:
+        for item in opts.algorithm_opts.split(','):
+            parts = item.split('=')
+            if len(parts) != 2:
+                logger.error("Malformed Algorithm opt: %s, ignoring...", item)
+            else:
+                algorithm_opts[parts[0]] = parts[1]
 
+    # Setup Beaconing Algorithm
+    if opts.algorithm == 'interval':
+        beacon_a = beacon_algorithm.BeaconAlgorithmInterval(gps_i, int(algorithm_opts['interval']))
+
+    elif opts.algorithm == 'smart':
+        beacon_a = beacon_algorithm.BeaconAlgorithmSmart(gps_i,
+                int(algorithm_opts['min_interval']),
+                int(algorithm_opts['max_interval']),
+            )
+    else:
+        logger.error("Unknown Beacon Algorithm: %s", opts.algorithm)
 
     while 1:
+
+        time.sleep(1)
 
         while 1:
             try:
@@ -222,10 +248,6 @@ def main():
                 ))
             with open(opts.log_gpx, 'w') as gpx_file:
                 gpx_file.write(gpx.to_xml(version="1.0"))
-
-        if opts.interval == 0:
-            break
-        time.sleep(opts.interval)
 
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4

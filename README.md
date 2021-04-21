@@ -50,7 +50,7 @@ Questions, comments, and patches are welcome. Email elektron@halo.nu
 
 ## Example Usage
 
-    prismtracker --call NOCALL-5 --symbol x --beacon --beacon-port ax0 --interval 180
+    prismtracker --call NOCALL-5 --symbol x --beacon --beacon-port ax0 --algorithm smart
 
 ## Setting up a systemd service
 
@@ -81,7 +81,7 @@ privileges.
 
 ### Create and edit /etc/default/prismtracker
 
-    DAEMON_OPTS="--call NOCALL-5 --symbol x --beacon --beacon-port ax0 --interval 600"
+    DAEMON_OPTS="--call NOCALL-5 --symbol x --beacon --beacon-port ax0 --algorithm smart"
 
 
 ### Setup and start the service
