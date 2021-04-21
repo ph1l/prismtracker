@@ -23,7 +23,7 @@ import time
 
 import gpxpy
 
-from prismtracker import aprs, broadcast, gps
+from prismtracker import aprs, broadcast, gps, beacon_algorithm
 
 def main():
     """ main daemon entrypoint """
@@ -107,6 +107,10 @@ def main():
 
     logger = logging.getLogger(__name__)
 
+    path = []
+    if len(opts.path) > 0:
+        path.extend(opts.path.split(','))
+
     # Setup GPS Interface
     if opts.gps == 'gpsd':
         gps_i = gps.GpsInterfaceGpsd()
@@ -141,6 +145,9 @@ def main():
         gpx_segment_broadcasts = gpxpy.gpx.GPXTrackSegment()
         gpx_track_broadcasts.segments.append(gpx_segment_broadcasts)
 
+    # Setup & Configure Beaconing Algorithm
+    beacon_a = beacon_algorithm.BeaconAlgorithmInterval(gps_i, opts.interval)
+
 
     while 1:
 
@@ -157,11 +164,6 @@ def main():
                 gps_i.get_timestamp(), gps_i.get_timestring()
             )
 
-        # Build the APRS Packet
-        path = []
-        if len(opts.path) > 0:
-            path.extend(opts.path.split(','))
-
         (gps_latitude, gps_longitude) = gps_i.get_position()
         gps_altitude = gps_i.get_altitude()
         (gps_course, gps_speed) = gps_i.get_course_and_speed()
@@ -174,6 +176,14 @@ def main():
                     speed=gps_speed * 0.5144447 # kts -> M/s
                 ))
 
+        # Check to see if we should send a packet yet
+        if beacon_a.check(): # True means send a packet
+            logger.debug("Sending report due to beacon_algorithm.check()")
+        else:
+            logger.debug("Not sending a report")
+            continue
+
+        # Build the APRS Packet
         frame = aprs.PositionReport(
                 source = opts.call,
                 destination = aprs.APP_DESTINATION,
