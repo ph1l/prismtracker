@@ -20,6 +20,8 @@ import argparse
 import logging
 import time
 
+import gpxpy
+
 from prismtracker import aprs, broadcast, gps
 
 def main():
@@ -80,6 +82,11 @@ def main():
             help='log level (debug, info, warning, error)',
             default="info",
         )
+    parser.add_argument('--log-gpx',
+            help='log gpx of position reports',
+            default=None,
+        )
+
 
     opts = parser.parse_args()
 
@@ -106,6 +113,25 @@ def main():
         bcast = broadcast.BroadcastAprsIs(opts.call, opts.aprsis_passcode)
         bcasts.append(bcast)
 
+    # Setup GPX log
+    if opts.log_gpx:
+        try:
+            with open(opts.log_gpx, 'r') as gpx_file:
+                gpx = gpxpy.parse(gpx_file)
+        except:
+            gpx = gpxpy.gpx.GPX()
+
+        gpx_track_positions = gpxpy.gpx.GPXTrack()
+        gpx.tracks.append(gpx_track_positions)
+        gpx_segment_positions = gpxpy.gpx.GPXTrackSegment()
+        gpx_track_positions.segments.append(gpx_segment_positions)
+
+        gpx_track_broadcasts = gpxpy.gpx.GPXTrack()
+        gpx.tracks.append(gpx_track_broadcasts)
+        gpx_segment_broadcasts = gpxpy.gpx.GPXTrackSegment()
+        gpx_track_broadcasts.segments.append(gpx_segment_broadcasts)
+
+
     while 1:
 
         while 1:
@@ -123,7 +149,16 @@ def main():
             path.extend(opts.path.split(','))
 
         (gps_latitude, gps_longitude) = gps_i.get_position()
+        gps_altitude = gps_i.get_altitude()
         (gps_course, gps_speed) = gps_i.get_course_and_speed()
+
+        # Log the position to GPX log track #1
+        if opts.log_gpx is not None:
+            gpx_segment_positions.points.append(gpxpy.gpx.GPXTrackPoint(
+                    gps_latitude, gps_longitude,
+                    elevation=gps_altitude * 0.3048, # ft -> meters
+                    speed=gps_speed * 0.5144447 # kts -> M/s
+                ))
 
         frame = aprs.PositionReport(
                 source = opts.call,
@@ -146,7 +181,6 @@ def main():
                 )
 
         if opts.altitude:
-            gps_altitude = gps_i.get_altitude()
             frame.add_altitude(gps_altitude)
 
         logger.info("APRS Frame: %s", frame)
@@ -154,6 +188,16 @@ def main():
         # Broadcast It!
         for bcast in bcasts:
             bcast.send_frame(frame)
+
+        # Log the position broadcast to GPX log track #2
+        if opts.log_gpx is not None:
+            gpx_segment_broadcasts.points.append(gpxpy.gpx.GPXTrackPoint(
+                    gps_latitude, gps_longitude,
+                    elevation=gps_altitude * 0.3048, # ft -> meters
+                    speed=gps_speed * 0.5144447 # kts -> M/s
+                ))
+            with open(opts.log_gpx, 'w') as gpx_file:
+                gpx_file.write(gpx.to_xml(version="1.0"))
 
         if opts.interval == 0:
             break
