@@ -16,6 +16,7 @@
 """ GPS Driver abstraction """
 
 import logging
+import time
 
 import gpsd
 
@@ -87,6 +88,12 @@ class GpsInterface:
         returns the current date and time as a string
         """
         raise NotImplementedError("get_timestring() not implemented")
+
+
+    def get_timestamp(self):
+        """ convert GPS Zulu timestring to datetime object """
+
+        return time.mktime(time.strptime(self.get_timestring(), '%Y-%m-%dT%H:%M:%S.%fZ'))
 
 
     def stop(self):
